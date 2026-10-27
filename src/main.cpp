@@ -67,6 +67,9 @@ long long optimalBatching(const std::vector<int>& tokens, int maxBatchSize, int 
     std::vector<long long> dp(n + 1, LLONG_MAX);
     dp[0] = 0;
 
+    // parent[i] = start idx of last batch for first i requests
+    std::vector<int> parent(n + 1, -1);
+
     // calc optimal cost for each prefix
     for (int i = 0; i <= n; i++) {
         int maxTokens = 0;
@@ -78,12 +81,38 @@ long long optimalBatching(const std::vector<int>& tokens, int maxBatchSize, int 
             int size = i - j;
             long long batchCost = overhead + 1LL * size * maxTokens;
             long long totCost = batchCost + dp[j];
-            dp[i] = std::min(dp[i], totCost);
+            // if partition = lower cost, save
+            if (totCost < dp[i]) {
+                dp[i] = totCost;
+                parent[i] = j;
+            }
         }
     }
+
+    // reverse through to gather batches
+    std::vector<std::pair<int,int>> batches;
+    for (int i = n; i > 0; i = parent[i]) {
+        batches.push_back({parent[i], i});
+    }
+    std::reverse(batches.begin(), batches.end());
+
+    #ifndef BATCHING_TEST
+    std::cout <<"DP formed " << batches.size() << " batches\n";
+
+    // print first 5 batches
+    int show = std::min(5, (int)batches.size());
+    for (int i = 0; i < show; i++) {
+        std::cout <<"Batch " << i + 1 << ": ";
+        for (int j = batches[i].first; j < batches[i].second; j++) {
+            std::cout << tokens[j] << " ";
+        }
+        std::cout << "\n";
+    }
+    #endif
     return dp[n];
 }
 
+#ifndef BATCHING_TEST
 int main() {
     std::ifstream file("data/request_tokens_1000.txt");
 
@@ -111,17 +140,15 @@ int main() {
             << greedyBatching(tokens, batchSize, overhead)
             << "\n";
 
-    // compare DP against existing algos
-    std::cout << "Optimal DP batching cost: "
-            << optimalBatching(tokens, batchSize, overhead)
-            << "\n";
+    // compare dp against existing algos
+    long long dpCost = optimalBatching(tokens, batchSize, overhead);
+    std::cout << "Optimal DP batching cost: " << dpCost << "\n";
 
-    // verify on small ex
+    // verify dp on small ex
     std::vector<int> testTokens = {10, 12, 100, 105, 11, 13};
-
-    std::cout << "Small DP test: "
-            << optimalBatching(testTokens, 3, 50)
-            << "\n"; // expected to be 410
+    long long testCost = optimalBatching(testTokens, 3, 50);
+    std::cout << "Small DP test: " << testCost << "\n"; // 410 expected
     
     return 0;
 }
+#endif
